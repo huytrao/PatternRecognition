@@ -3,7 +3,9 @@ import os
 import scipy.io
 import mne
 import numpy as np
-import matplotlib.pyplot as plt
+import pandas as pd
+import matplotlib.pyplot as pl
+from scipy.fftpack import fft
 
 # Đường dẫn tới thư mục chứa các file .mat đã giải nén
 data_root = 'eeg_data'
@@ -30,27 +32,28 @@ for mat_file in mat_files:
         print(f"File: {mat_file}")
         print(f"Sample Frequency: {samp_freq}")
         print(f"Data Shape: {data.shape}")
-        print(f"First 5 data points:\n{data[:5]}")
     
     except KeyError as e:
         print(f"Missing key in file {mat_file}: {e}")
 
 #%%
-import numpy as np
-
 channel_indices = np.array(range(3, 17))
 channel_names = ['AF3', 'F7', 'F3', 'FC5', 'T7', 'P7', 'O1', 'O2', 'P8', 'T8', 'FC6', 'F4', 'F8', 'AF4']
 channel_map = dict(zip(channel_names, channel_indices))
 #%%
-import pandas as pd
-
 df = pd.DataFrame.from_dict(data)
+#%%
+states = {
+ 'focused': data[:samp_freq * 10 * 60, :],
+  'unfocused': data[samp_freq * 10 * 60:samp_freq * 20 * 60, :],
+  'drowsy': data[samp_freq * 30 * 60:, :],
+}
 #%%
 # Lấy số lượng mẫu từ dữ liệu
 num_samples = data.shape[0]  # Số dòng trong ma trận `data`
 
 # Tần số lấy mẫu (Hz)
-samp_freq = 128  # Theo mô tả, tần số lấy mẫu là 128 Hz
+FS = 128  # Theo mô tả, tần số lấy mẫu là 128 Hz
 
 # Tính thời gian thí nghiệm (giây)
 experiment_duration = num_samples / samp_freq
@@ -58,6 +61,16 @@ experiment_duration = num_samples / samp_freq
 # Hiển thị kết quả
 print(f"Thời gian của thí nghiệm là {experiment_duration:.2f} giây.")
 print(f"Tương đương {experiment_duration / 60:.2f} phút.")
+
+#%%
+# Định nghĩa các dải tần số (bands)
+bands = {
+    'delta': (0.5, 4),   # Delta: 0.5–4 Hz
+    'theta': (4, 8),     # Theta: 4–8 Hz
+    'alpha': (8, 13),    # Alpha: 8–13 Hz
+    'beta': (13, 30),    # Beta: 13–30 Hz
+    'gamma': (30, 50)    # Gamma: 30–50 Hz
+}
 
 #%%
 i_ch = 0
@@ -107,246 +120,188 @@ plt.grid(True)
 plt.show()
 
 #%%
-states = {
- 'focused': data[:samp_freq * 10 * 60, :],
-  'unfocused': data[samp_freq * 10 * 60:samp_freq * 20 * 60, :],
-  'drowsy': data[samp_freq * 30 * 60:, :],
-}
-#%%
-bands = {'alpha': (8, 13), 'delta': (0.5, 4), 'beta': (13, 30), 'gamma': (30, np.inf)}
-#%%
-# Định nghĩa các dải tần số (bands)
-bands = {
-    'delta': (0.5, 4),   # Delta: 0.5–4 Hz
-    'theta': (4, 8),     # Theta: 4–8 Hz
-    'alpha': (8, 13),    # Alpha: 8–13 Hz
-    'beta': (13, 30),    # Beta: 13–30 Hz
-    'gamma': (30, 50)    # Gamma: 30–50 Hz
-}
 
-#%%
+# Hàm lấy dữ liệu từ tệp .mat
 def get_data(filename):
-    mat = scipy.io.loadmat(os.path.join(data_root, filename))
-    data = mat['o']['data'][0, 0]
-    FS = mat['o']['sampFreq'][0][0][0][0]
-
+    mat = scipy.io.loadmat(filename)
+    data = mat['o']['data'][0, 0]  # Dữ liệu EEG
+    FS = mat['o']['sampFreq'][0][0][0][0]  # Tần số mẫu (Hz)
+    
     states = {
-     'focused': data[:FS * 10 * 60, :],
-      'unfocused': data[FS * 10 * 60:FS * 20 * 60, :],
-      'drowsy': data[FS * 30 * 60:, :],
+        'focused': data[:FS * 10 * 60, :],  # 10 phút đầu
+        'unfocused': data[FS * 10 * 60:FS * 20 * 60, :],  # 10 phút tiếp theo
+        'drowsy': data[FS * 30 * 60:, :],  # Sau 30 phút
     }
+    
     return states
-#%%
-def get_powers(channel, FS=128):
-    # Loại bỏ NaN hoặc kiểm tra mảng trống
-    if channel.size == 0 or np.all(np.isnan(channel)):
-        return {band: 0 for band in bands.keys()}  # Gửi trả 0 nếu không có dữ liệu hợp lệ
-
-    # Tiến hành tính toán
-    channel = channel - channel.mean()  # Trung bình hóa
-    freq, psd = signal.periodogram(channel, fs=FS, nfft=256)
-
-    powers = {}
-    for band_name, band_limits in bands.items():
-        low, high = band_limits
-        band_psd = psd[(freq >= low) & (freq < high)]
-        if band_psd.size > 0:
-            powers[band_name] = band_psd.mean()
-        else:
-            powers[band_name] = 0  # Nếu không có giá trị, gán về 0
-    return powers
 
 #%%
-from scipy import signal
+from scipy.signal import butter, filtfilt
+
+def bandpass_filter(eeg_signal, lowcut, highcut, FS, order=5):
+    nyquist = 0.5 * FS
+    low = lowcut / nyquist
+    high = highcut / nyquist
+    b, a = butter(order, [low, high], btype='band')
+    filtered_signal = filtfilt(b, a, eeg_signal)
+    return filtered_signal
+
+#%%
+def remove_mean(eeg_signal):
+    return eeg_signal - np.mean(eeg_signal)
+
+#%%
+def normalize_signal(eeg_signal):
+    return (eeg_signal - np.min(eeg_signal)) / (np.max(eeg_signal) - np.min(eeg_signal))
+
+#%%
+import numpy as np
+
+def create_segments(signal, FS, window_size):
+    """
+    Cắt tín hiệu thành các đoạn nhỏ theo độ dài cửa sổ (window_size).
+
+    Parameters:
+    - signal: Tín hiệu EEG đã được xử lý.
+    - FS: Tần số mẫu (sampling frequency).
+    - window_size: Độ dài cửa sổ (tính bằng giây).
+
+    Returns:
+    - segments: Danh sách các đoạn tín hiệu.
+    """
+    segment_length = int(FS * window_size)  # Số mẫu trong một cửa sổ
+    segments = []
+
+    # Cắt tín hiệu thành các đoạn có độ dài bằng với segment_length
+    for start in range(0, len(signal), segment_length):
+        end = start + segment_length
+        segment = signal[start:end]
+        
+        # Nếu đoạn tín hiệu có đủ kích thước, thêm vào danh sách
+        if len(segment) == segment_length:
+            segments.append(segment)
+    
+    return segments
+
+#%%
+def segment_signal(eeg_signal, window_size, FS):
+    window_samples = window_size * FS
+    segments = []
+    for i in range(0, len(eeg_signal), window_samples):
+        segment = eeg_signal[i:i+window_samples]
+        if len(segment) == window_samples:
+            segments.append(segment)
+    return np.array(segments)
+
+#%%
+def preprocess_eeg(eeg_signal, FS, lowcut=0.5, highcut=40, window_size=2):
+    # Kiểm tra chiều dài tín hiệu trước khi lọc
+    if len(eeg_signal) < 35:  # Kiểm tra nếu tín hiệu quá ngắn
+        print(f"Tín hiệu quá ngắn, bỏ qua: {len(eeg_signal)} mẫu")
+        return []  # Trả về một danh sách rỗng để bỏ qua tín hiệu này
+    
+    # Lọc tín hiệu
+    filtered_signal = bandpass_filter(eeg_signal, lowcut, highcut, FS)
+    
+    # Loại bỏ trung bình tín hiệu
+    cleaned_signal = remove_mean(filtered_signal)
+    
+    # Cắt tín hiệu thành các đoạn nhỏ
+    segments = create_segments(cleaned_signal, FS, window_size)
+    
+    return segments
+
+#%%
+def get_band_powers(eeg_signal, FS):
+    N = len(eeg_signal)  # Số mẫu tín hiệu
+    fft_result = fft(eeg_signal)  # Fourier Transform
+    positive_frequencies = np.fft.fftfreq(N, d=1/FS)[:N//2]  # Tần số dương
+    fft_magnitude = np.abs(fft_result[:N//2])  # Biên độ phổ
+    
+    band_powers = {}
+    for band, (low, high) in bands.items():
+        band_indices = np.where((positive_frequencies >= low) & (positive_frequencies < high))
+        band_powers[band] = np.sum(fft_magnitude[band_indices])  # Năng lượng trong dải tần
+        
+    return band_powers
+
+#%%
+import os
+import scipy.io
+
+data_root = "eeg_data"  # Thay bằng đường dẫn chính xác đến thư mục chứa tệp .mat
+
+# Lấy danh sách tất cả các tệp .mat trong thư mục
+mat_files = [f for f in os.listdir(data_root) if f.endswith('.mat')]
 
 rows_list = []
-for subject_idx in range(1, 35):
-    states = get_data(f"eeg_record{subject_idx}.mat")
+
+for mat_file in mat_files:
+    states = get_data(os.path.join(data_root, mat_file))  # Đảm bảo cung cấp đường dẫn đầy đủ
     for ch_name, ch_idx in channel_map.items():
         for state, eeg in states.items():
-            powers = get_powers(eeg[:, ch_idx])
-            powers['state'] = state
-            powers['channel'] = ch_name
-            powers['subject'] = f"subject_{subject_idx}"
-            rows_list.append(powers)
-#%%
+            eeg_signal = eeg[:, ch_idx]  # Lấy tín hiệu của kênh ch_idx
+            
+            # Tiến hành preprocessing và tính toán band powers
+            segments = preprocess_eeg(eeg_signal, FS)
+            
+            for segment in segments:
+                band_powers = get_band_powers(segment, FS)
+                band_powers['state'] = state
+                band_powers['channel'] = ch_name
+                band_powers['subject'] = mat_file  # Lưu tên tệp .mat vào cột subject
+                rows_list.append(band_powers)
+
+# Chuyển đổi kết quả thành DataFrame
 df = pd.DataFrame(rows_list)
-#%%
 df.head()
+
 #%%
 df.info()
 #%%
-df.describe()
-#%%
-import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
-
-plt.figure(figsize=(12, 10))
-
-# Vẽ các histogram cho các đặc trưng số (alpha, delta, beta, gamma)
-plt.subplot(2, 2, 1)
-sns.histplot(df['alpha'], kde=True, bins=30)
-plt.title('Distribution of Alpha')
-
-plt.subplot(2, 2, 2)
-sns.histplot(df['delta'], kde=True, bins=30)
-plt.title('Distribution of Delta')
-
-plt.subplot(2, 2, 3)
-sns.histplot(df['beta'], kde=True, bins=30)
-plt.title('Distribution of Beta')
-
-plt.subplot(2, 2, 4)
-sns.histplot(df['gamma'], kde=True, bins=30)
-plt.title('Distribution of Gamma')
-
-# Hiển thị các đồ thị
-plt.tight_layout()
-plt.show()
-
-#%%
-import pandas as pd
-
-def remove_outliers_iqr(df, columns):
-    """
-    Loại bỏ outliers cho các cột chỉ định trong DataFrame bằng phương pháp IQR (Interquartile Range).
-    
-    Args:
-    - df: DataFrame chứa dữ liệu
-    - columns: Danh sách các tên cột cần kiểm tra và loại bỏ outliers
-    
-    Returns:
-    - DataFrame đã loại bỏ outliers
-    """
-    for col in columns:
-        Q1 = df[col].quantile(0.25)  # Tính Q1
-        Q3 = df[col].quantile(0.75)  # Tính Q3
-        IQR = Q3 - Q1  # Tính khoảng IQR
-        
-        lower_bound = Q1 - 1.5 * IQR  # Giới hạn dưới
-        upper_bound = Q3 + 1.5 * IQR  # Giới hạn trên
-        
-        # Lọc bỏ các giá trị ngoài giới hạn
-        df = df[(df[col] >= lower_bound) & (df[col] <= upper_bound)]
-    
-    return df
-
-columns_to_check = ['alpha', 'delta', 'beta', 'gamma']
-df_cleaned = remove_outliers_iqr(df, columns_to_check)
-
-# In DataFrame đã loại bỏ outliers
-df_cleaned.head()
-
-#%%
-plt.figure(figsize=(12, 10))
-
-# Vẽ các histogram cho các đặc trưng số (alpha, delta, beta, gamma)
-plt.subplot(2, 2, 1)
-sns.histplot(df_cleaned['alpha'], kde=True, bins=30)
-plt.title('Distribution of Alpha')
-
-plt.subplot(2, 2, 2)
-sns.histplot(df_cleaned['delta'], kde=True, bins=30)
-plt.title('Distribution of Delta')
-
-plt.subplot(2, 2, 3)
-sns.histplot(df_cleaned['beta'], kde=True, bins=30)
-plt.title('Distribution of Beta')
-
-plt.subplot(2, 2, 4)
-sns.histplot(df_cleaned['gamma'], kde=True, bins=30)
-plt.title('Distribution of Gamma')
-
-# Hiển thị các đồ thị
-plt.tight_layout()
-plt.show()
-
-#%%
-
-# Giả sử df là DataFrame chứa các cột 'alpha', 'delta', 'beta', 'gamma', 'channel'
-# Lấy danh sách các kênh
-channels = df_cleaned['channel'].unique()
-
-# Tạo figure
-plt.figure(figsize=(15, 10))
-
-# Duyệt qua từng đặc trưng
-features = ['alpha', 'delta', 'beta', 'gamma']
-for feature in features:
-    feature_values = []
-    
-    # Tính trung bình giá trị của đặc trưng theo từng kênh
-    for ch in channels:
-        mean_value = df_cleaned[df_cleaned['channel'] == ch][feature].mean()
-        feature_values.append(mean_value)
-
-    # Vẽ đường biểu diễn giá trị trung bình đặc trưng của từng kênh
-    plt.plot(channels, feature_values, label=f'{feature.title()} Power')
-
-# Thêm nhãn, tiêu đề, và chú thích
-plt.xlabel('EEG Channels', fontsize=14)
-plt.ylabel('Mean Power', fontsize=14)
-plt.title('Mean Power of EEG Bands across Channels', fontsize=16)
-plt.legend(loc='upper right', fontsize=12)
-plt.grid(True)
-plt.xticks(rotation=45)  # Xoay nhãn kênh nếu cần
-plt.tight_layout()
-
-# Hiển thị đồ thị
-plt.show()
-
-#%%
-import numpy as np
-
-# Giá trị giả định
-channels = ['AF3', 'F7', 'F3', 'FC5', 'T7', 'P7', 'O1', 'O2', 'P8', 'T8', 'FC6', 'F4', 'F8', 'AF4']
-bands = ['Delta', 'Theta', 'Alpha', 'Beta', 'Gamma']
-
-# Tạo dữ liệu ngẫu nhiên (mỗi band có giá trị tại các kênh)
-data = {
-    band: np.random.rand(len(channels)) for band in bands
-}
-
-#%% md
-# - wavelet transform: shannon entrophy, wavelet energy, mean, variance, kurtosis, skewness
-# - Wavelet transform là một công cụ mạnh mẽ để phân tích tín hiệu EEG trong miền thời gian - tần số. Sau khi thực hiện wavelet transform, bạn có thể trích xuất các đặc điểm như Shannon entropy, wavelet energy, mean, variance, kurtosis, và skewness từ các coefficients của wavelet
-#%%
+import os
+import scipy.io
 import pywt
 import numpy as np
+import pandas as pd
+from scipy import signal
+from scipy.stats import kurtosis, skew
 
+# Đường dẫn tới thư mục chứa dữ liệu .mat
+data_root = "eeg_data"  # Thay bằng đường dẫn chính xác đến thư mục chứa tệp .mat
+
+# Hàm wavelet transform
 def wavelet_transform(signal, wavelet='db4', level=4):
-    # wavelet='db4' là Daubechies 4, phổ biến trong phân tích EEG
     coeffs = pywt.wavedec(signal, wavelet, level=level)
     return coeffs
 
-#%%
+# Hàm tính Shannon entropy
 def shannon_entropy(coeff):
     prob = np.abs(coeff) / np.sum(np.abs(coeff))  # Tính xác suất
     entropy = -np.sum(prob * np.log2(prob + 1e-12))  # Tính entropy
     return entropy
 
-#%%
+# Hàm tính wavelet energy
 def wavelet_energy(coeff):
     return np.sum(np.square(coeff))
 
-#%%
+# Hàm tính mean
 def compute_mean(coeff):
     return np.mean(coeff)
 
-#%%
-from scipy.stats import kurtosis
+# Hàm tính variance
+def compute_variance(coeff):
+    return np.var(coeff)
 
+# Hàm tính kurtosis
 def compute_kurtosis(coeff):
     return kurtosis(coeff)
-    
-#%%
-from scipy.stats import skew
 
+# Hàm tính skewness
 def compute_skewness(coeff):
     return skew(coeff)
 
-#%%
+# Hàm trích xuất các đặc trưng wavelet
 def extract_wavelet_features(signal, wavelet='db4', level=4):
     coeffs = wavelet_transform(signal, wavelet, level)
     
@@ -361,12 +316,7 @@ def extract_wavelet_features(signal, wavelet='db4', level=4):
     
     return features
 
-#%%
-from scipy import signal
-import pandas as pd
-import numpy as np
-
-# Định nghĩa các dải tần số
+# Định nghĩa các băng tần
 bands = {
     'delta': (0.5, 4),
     'theta': (4, 8),
@@ -393,55 +343,46 @@ def get_powers(channel, FS=128):
             powers[band_name] = 0  # Nếu không có giá trị, gán về 0
     return powers
 
-# Giả sử get_data và channel_map đã được định nghĩa
+# Hàm đọc dữ liệu EEG từ các tệp .mat
+def get_data(mat_file_path):
+    data = scipy.io.loadmat(mat_file_path)  # Đọc tệp .mat
+    # Bạn cần xác định cách lấy thông tin từ tệp .mat cụ thể cho dữ liệu EEG của mình
+    # Giả sử data là một dictionary chứa thông tin cần thiết
+    return data
+
+# Đọc tất cả các tệp .mat từ thư mục data_root
+mat_files = [f for f in os.listdir(data_root) if f.endswith('.mat')]
+
 rows_list = []
-for subject_idx in range(1, 35):
-    states = get_data(f"eeg_record{subject_idx}.mat")
+
+# Lặp qua tất cả các tệp .mat và các kênh
+for mat_file in mat_files:
+    mat_file_path = os.path.join(data_root, mat_file)  # Lấy đường dẫn đầy đủ tới tệp .mat
+    states = get_data(mat_file_path)
+    
     for ch_name, ch_idx in channel_map.items():
         for state, eeg in states.items():
+            # Lấy đặc trưng năng lượng các băng tần
             powers = get_powers(eeg[:, ch_idx])
-            powers['state'] = state
-            powers['channel'] = ch_name
-            powers['subject'] = f"subject_{subject_idx}"
-            powers['raw_signal'] = eeg[:, ch_idx].tolist()  # Lưu tín hiệu thô vào DataFrame
-            rows_list.append(powers)
+
+            # Trích xuất các đặc trưng wavelet
+            wavelet_features = extract_wavelet_features(eeg[:, ch_idx])
+
+            # Kết hợp các đặc trưng vào một dictionary
+            features = powers.copy()  # Sao chép các đặc trưng băng tần
+            features.update(wavelet_features)  # Thêm các đặc trưng wavelet
+
+            # Thêm thông tin bổ sung
+            features['state'] = state
+            features['channel'] = ch_name
+            features['subject'] = mat_file
+            features['raw_signal'] = eeg[:, ch_idx].tolist()  # Lưu tín hiệu thô vào DataFrame
+
+            # Thêm vào danh sách rows_list
+            rows_list.append(features)
 
 # Tạo DataFrame
 df = pd.DataFrame(rows_list)
-
-#%%
-df
-#%%
-print(df['raw_signal'].head())
-print(df['raw_signal'].apply(len).describe())  # Xem độ dài tín hiệu
-#%%
-# Giữ lại các tín hiệu có độ dài > 0
-df = df[df['raw_signal'].apply(lambda x: len(x) > 0)]
-#%%
-import pywt
-import numpy as np
-from scipy.stats import kurtosis, skew
-
-def extract_wavelet_features(signal, wavelet='db4', level=4):
-    if len(signal) == 0:  # Bỏ qua tín hiệu rỗng
-        return {f'wavelet_level_{i}_{stat}': np.nan 
-                for i in range(level + 1) 
-                for stat in ['energy', 'mean', 'var', 'kurt', 'skew']}
-    
-    try:
-        coeffs = pywt.wavedec(signal, wavelet, level=level)
-        features = {}
-        for i, coeff in enumerate(coeffs):
-            features[f'wavelet_level_{i}_energy'] = np.sum(coeff ** 2)  # Năng lượng
-            features[f'wavelet_level_{i}_mean'] = np.mean(coeff)       # Giá trị trung bình
-            features[f'wavelet_level_{i}_var'] = np.var(coeff)         # Phương sai
-            features[f'wavelet_level_{i}_kurt'] = kurtosis(coeff)      # Kurtosis
-            features[f'wavelet_level_{i}_skew'] = skew(coeff)          # Skewness
-        return features
-    except Exception as e:
-        print(f"Error processing signal: {e}")
-        return {f'wavelet_level_{i}_{stat}': np.nan 
-                for i in range(level + 1) 
-                for stat in ['energy', 'mean', 'var', 'kurt', 'skew']}
+df.head()
 
 #%%
