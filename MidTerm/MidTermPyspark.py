@@ -44,7 +44,6 @@ channel_map = {
     'O1': 9, 'O2': 10, 'P8': 11, 'T8': 12, 'FC6': 13, 'F4': 14, 'F8': 15, 'AF4': 16
 }
 
-
 for mat_file in os.listdir(data_root):
     if mat_file.endswith('.mat'):
         states = read_mat_file(os.path.join(data_root, mat_file))
