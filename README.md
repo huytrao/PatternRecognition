@@ -82,6 +82,7 @@
   - ***6. cnn_model.ipynb***: Thực hiện mô hình CNN
   - ***7. XGBOOST_feature extraction and trainning model.ipynb***: Dữ liệu đầu vào cho XGBOOTS
   - ***8. Compare_model.ipynb***: So sánh giữa các model với nhau
+  - ***9. KNN mode.ipynb***: bổ sung thêm KNN model.
 - File báo cáo và đánh giá nhóm:
   - ***PRML2024_Midterm_Group05_report.pdf***: Báo cáo
   - ***11-Bảng-Đánh-Giá-Quá-Trình-Làm-Việc-Của-Nhóm-5..pdf***: Đánh giá
