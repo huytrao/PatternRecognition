@@ -18,7 +18,8 @@
     - Mỗi người tham gia thực hiện 7 thí nghiệm (1 lần/ngày), 2 thí nghiệm đầu để làm quen, 5 thí nghiệm sau thu thập dữ liệu.
     - Thí nghiệm diễn ra từ 7-9 giờ tối để dễ vào trạng thái buồn ngủ trong giai đoạn cuối.
     - Người tham gia được giám sát và ghi hình để đảm bảo tuân thủ cấu trúc thí nghiệm, không có gián đoạn như di chuyển hay nói chuyện.
-  <div style="text-align: center;">
+<div style="display: flex; justify-content: center; align-items: center; height: 100vh;">
     <img src="https://github.com/VietDucFCB/PatternRecognition/blob/main/image/1.png?raw=true" width="500"/>
 </div>
+
 - Mục tiêu:
