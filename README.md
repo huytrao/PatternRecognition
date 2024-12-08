@@ -19,6 +19,6 @@
     - Thí nghiệm diễn ra từ 7-9 giờ tối để dễ vào trạng thái buồn ngủ trong giai đoạn cuối.
     - Người tham gia được giám sát và ghi hình để đảm bảo tuân thủ cấu trúc thí nghiệm, không có gián đoạn như di chuyển hay nói chuyện.
   <div style="text-align: center;">
-    <img src="https://github.com/VietDucFCB/PatternRecognition/blob/main/image/1.png?raw=true" width="70"/>
+    <img src="https://github.com/VietDucFCB/PatternRecognition/blob/main/image/1.png?raw=true" width="500"/>
 </div>
 - Mục tiêu:
