@@ -1,4 +1,4 @@
-![image](https://github.com/user-attachments/assets/43a5cab3-d8ff-4c20-964c-b938cc14a3c7)# 1. Tổng quan:
+# 1. Tổng quan:
 - Chủ đề: Phân loại trạng thái chú ý tinh thần bằng dữ liệu EEG
 - Nguồn dữ liệu: https://www.kaggle.com/datasets/inancigdem/eeg-data-for-mental-attention-state-detection/data
   - Dữ liệu EEG được thu thập trong 25 giờ từ 5 người tham gia, mỗi người điều khiển tàu mô phỏng bằng “Microsoft Train Simulator” trong 35-55 phút trên tuyến đường đơn giản.
@@ -86,13 +86,15 @@
   - ***PRML2024_Midterm_Group05_report.pdf***: Báo cáo
   - ***11-Bảng-Đánh-Giá-Quá-Trình-Làm-Việc-Của-Nhóm-5..pdf***: Đánh giá
 # 3. Quy trình:
+
   ### 3.1: Lấy dữ liệu cho SVM và KNN:
-    <div style="display: flex; justify-content: center; align-items: center; height: 100vh;">
+<div style="display: flex; justify-content: center; align-items: center; height: 100vh;">
         <img src="https://github.com/VietDucFCB/PatternRecognition/blob/main/image/3.png" width="500"/>
-    </div>
+    </div>   
+    
     - Chi tiết coi trong file notebook 3. feature_extraction_for_SVM_and_KNN_model.ipynb
   ### 3.2: Lấy dữ liệu cho CNN:
-    <div style="display: flex; justify-content: center; align-items: center; height: 100vh;">
+<div style="display: flex; justify-content: center; align-items: center; height: 100vh;">
         <img src="https://github.com/VietDucFCB/PatternRecognition/blob/main/image/4.png" width="500"/>
     </div>
     -Chi tiết coi trong file notebook 5. Feature Extraction Cnn.ipynb
@@ -100,27 +102,49 @@
     - Chi tiết coi trong file 7. XGBOOST_feature extraction and trainning model.ipynb
 # 4. Triển khai model và kết quả:
   ### 4.1: Model SVM:
+  
   <div style="display: flex; justify-content: center; align-items: center; height: 100vh;">
         <img src="https://github.com/VietDucFCB/PatternRecognition/blob/main/image/5.png" width="500"/>
   </div>
 
-  ### 4.2: Model KNN
+  ### 4.2: Model KNN:
+  
   <div style="display: flex; justify-content: center; align-items: center; height: 100vh;">
         <img src="https://github.com/VietDucFCB/PatternRecognition/blob/main/image/6.png" width="500"/>
   </div>
 
-  ### 4.3: Model CNN
+  ### 4.3: Model CNN:
+  
   <div style="display: flex; justify-content: center; align-items: center; height: 100vh;">
         <img src="https://github.com/VietDucFCB/PatternRecognition/blob/main/image/7.png" width="500"/>
   </div>
 
-  ### 4.4: XGBOOTS
+  ### 4.4: XGBOOTS:
+  
   <div style="display: flex; justify-content: center; align-items: center; height: 100vh;">
         <img src="https://github.com/VietDucFCB/PatternRecognition/blob/main/image/8.png" width="500"/>
   </div>
 
-# 5. So sánh giữa các model
+# 5. So sánh giữa các model:
+
 <div style="display: flex; justify-content: center; align-items: center; height: 100vh;">
         <img src="https://github.com/VietDucFCB/PatternRecognition/blob/main/image/9.png" width="500"/>
 </div>
-  
+
+# 6. Kết luận:
+- Nội dung nghiên cứu:
+  - Phát triển EEG BCI thụ động để theo dõi và phân loại ba trạng thái tinh thần: chú ý thụ động, thảnh thơi, và buồn ngủ.
+  - Sử dụng mô hình SVM để đạt độ chính xác cao trong phân biệt trạng thái tinh thần, với kết quả tốt nhất là 86,78% và trung bình là 85.78%.
+- Ứng dụng tiềm năng:
+  - An toàn người lái xe: Sử dụng để phát hiện trạng thái không tập trung hoặc buồn ngủ nhằm cảnh báo kịp thời.
+  - Ứng dụng lâm sàng:
+    - Đánh giá hoặc theo dõi trạng thái tinh thần của bệnh nhân.
+    - Mở rộng các phương pháp như chỉ số lưỡng cực (BIS) để theo dõi độ sâu gây mê, dựa trên việc phân tích tín hiệu EEG.
+  - Khái quát hóa: Nghiên cứu cung cấp cơ sở để phát triển các hệ thống phát hiện trạng thái tinh thần khác trong nhiều bối cảnh khác nhau, từ bảo mật đến y học.
+ - Ý nghĩa đặc biệt:
+  - Phương pháp phân tích các tham số từ tín hiệu EEG giúp cung cấp hiểu biết mới về cách biểu thị các trạng thái tinh thần.
+  - Hướng đi mới trong việc ứng dụng EEG BCI vào các bài toán thực tiễn với tiềm năng lớn trong cải thiện an toàn và hiệu quả giám sát.
+
+# 7. Tài liệu tham khảo:
+- https://www.researchgate.net/publication/333499959_Distinguishing_mental_attention_states_of_humans_via_an_EEG-based_passive_BCI_using_Machine_Learning_Methods
+
