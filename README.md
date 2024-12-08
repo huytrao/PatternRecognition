@@ -119,7 +119,7 @@
         <img src="https://github.com/VietDucFCB/PatternRecognition/blob/main/image/7.png" width="500"/>
   </div>
 
-  ### 4.4: XGBOOTS:
+  ### 4.4: XGBOOST:
   
   <div style="display: flex; justify-content: center; align-items: center; height: 100vh;">
         <img src="https://github.com/VietDucFCB/PatternRecognition/blob/main/image/8.png" width="500"/>
